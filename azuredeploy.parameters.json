@@ -16,12 +16,6 @@
     },
     "certThumbprint": {
       "value": "efd1d465060f9d6072ca51674d548e6a4db0cacf"
-    },
-    "certUserName": {
-      "value": "admin"
-    },
-    "certPassword": {
-      "value": "#{certPassword}#"
     }
   }
 }

@@ -5,7 +5,7 @@ Configuration Main
         [string] $nodeName,
         [string] $certUrl,
         [string] $certThumbprint,
-        [securestring] $certPassword
+        [PSCredential] $certCredential
     )
 
     Import-DscResource -ModuleName PSDesiredStateConfiguration
@@ -23,20 +23,20 @@ Configuration Main
             Uri     = "$certUrl"
             DestinationPath = "C:\Certs\iiscert.pfx"
         }
-        <#PfxImport importCert {
+        xPfxImport importCert {
             Thumbprint = "$certThumbprint"
             Path       = "C:\Certs\iiscert.pfx"
             Location   = "LocalMachine"
-            Store      = "WebHosting"
-            Credential = "$using:certCredential"
-            DependsOn  = "[File]copyCert"
-        }#>
+            Store      = "My"
+            Credential = "$certCredential"
+            DependsOn  = "[xRemoteFile]copyCert"
+        }
         xWebsite newWebSite {
             Ensure       = "Present"
             Name         = "NewWebSite"
             State        = "Started"
             PhysicalPath = "C:\inetpub\wwwroot"
-            DependsOn    = @("[Script]installCert", "[WindowsFeature]IIS")
+            DependsOn    = @("[xPfxImport]importCert", "[WindowsFeature]IIS")
             BindingInfo  = MSFT_xWebBindingInformation {
                 Protocol              = "HTTPS"
                 Port                  = 443
@@ -44,7 +44,7 @@ Configuration Main
                 CertificateStoreName  = "My"
             }
         }
-        Script installCert {
+        <#Script installCert {
           TestScript = {
             if((Get-ChildItem -Path Cert:\LocalMachine\My).Thumbprint -contains $certThumbprint){return $true}
             else{return $false}
@@ -57,6 +57,6 @@ Configuration Main
             }
           }
           DependsOn = "[xRemoteFile]copyCert"
-        }
+        }#>
     }
 }

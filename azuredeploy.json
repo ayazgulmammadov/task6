@@ -42,12 +42,6 @@
     "certThumbprint": {
       "type": "string"
     },
-    "certUserName": {
-      "type": "string"
-    },
-    "certPassword": {
-      "type": "securestring"
-    },
     "_artifactsLocation": {
       "type": "string",
       "metadata": {
@@ -257,7 +251,10 @@
             "protectedSettings": {
               "configurationUrlSasToken": "[parameters('_artifactsLocationSasToken')]",
               "configurationArguments": {
-                "certPassword": "[parameters('certPassword')]"
+                "certCredential": {
+                  "userName": "user",
+                  "password": "A123456789a"
+                }
               }
             }
           }
