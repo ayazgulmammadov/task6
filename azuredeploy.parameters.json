@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "myVMName": {
+      "value": "webvm01"
+    },
+    "myVMAdminUserName": {
+      "value": "adminuser"
+    },
+    "myVMAdminPassword": {
+      "value": "#{VMAdminPassword}#"
+    },
+    "myPublicIPDnsName": {
+      "value": "aytask6az"
+    },
+    "certThumbprint": {
+      "value": "efd1d465060f9d6072ca51674d548e6a4db0cacf"
+    },
+    "certUserName": {
+      "value": "admin"
+    },
+    "certPassword": {
+      "value": "#{certPassword}#"
+    }
+  }
+}

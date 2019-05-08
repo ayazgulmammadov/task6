@@ -1,0 +1,285 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "myStorageType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_ZRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Premium_LRS"
+      ]
+    },
+    "myVMName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "myVMAdminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "myVMAdminPassword": {
+      "type": "securestring"
+    },
+    "myVMWindowsOSVersion": {
+      "type": "string",
+      "defaultValue": "2016-Datacenter",
+      "allowedValues": [
+        "2008-R2-SP1",
+        "2012-Datacenter",
+        "2012-R2-Datacenter",
+        "2016-Datacenter",
+        "Windows-Server-Technical-Preview"
+      ]
+    },
+    "myPublicIPDnsName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "certThumbprint": {
+      "type": "string"
+    },
+    "certUserName": {
+      "type": "string"
+    },
+    "certPassword": {
+      "type": "securestring"
+    },
+    "_artifactsLocation": {
+      "type": "string",
+      "metadata": {
+        "description": "Auto-generated container in staging storage account to receive post-build staging folder upload"
+      }
+    },
+    "_artifactsLocationSasToken": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Auto-generated token to access _artifactsLocation"
+      }
+    }
+  },
+  "variables": {
+    "myStorageName": "[concat('aystrtask6', uniqueString(resourceGroup().id))]",
+    "myVNetPrefix": "10.0.0.0/16",
+    "myVNetSubnet1Name": "Subnet-1",
+    "myVNetSubnet1Prefix": "10.0.0.0/24",
+    "myVMImagePublisher": "MicrosoftWindowsServer",
+    "myVMImageOffer": "WindowsServer",
+    "myVMOSDiskName": "myVMOSDisk",
+    "myVMVmSize": "Standard_D2_v2",
+    "myVMVnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'myVNet')]",
+    "myVMSubnetRef": "[concat(variables('myVMVnetID'), '/subnets/', variables('myVNetSubnet1Name'))]",
+    "myVMStorageAccountContainerName": "vhds",
+    "myVMNicName": "[concat(parameters('myVMName'), 'NetworkInterface')]",
+    "myPublicIPName": "myPublicIP",
+    "iisconfigArchiveFolder": "DSC",
+    "iisconfigArchiveFileName": "iisconfig.zip"
+  },
+  "resources": [
+    {
+      "name": "myNSG",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2018-12-01",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [],
+      "properties": {
+        "securityRules": [
+          {
+            "name": "AllowHttpAndHttps",
+            "properties": {
+              "access": "Allow",
+              "destinationAddressPrefix": "*",
+              "sourceAddressPrefix": "*",
+              "destinationPortRanges": [
+                "80",
+                "443",
+                "3389"
+              ],
+              "sourcePortRange": "*",
+              "direction": "Inbound",
+              "priority": 100,
+              "protocol": "Tcp"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('myStorageName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2018-02-01",
+      "sku": {
+        "name": "[parameters('myStorageType')]"
+      },
+      "dependsOn": [],
+      "tags": {
+        "displayName": "myStorage"
+      },
+      "kind": "Storage"
+    },
+    {
+      "name": "myVNet",
+      "type": "Microsoft.Network/virtualNetworks",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2018-10-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', 'myNSG')]"
+      ],
+      "tags": {
+        "displayName": "myVNet"
+      },
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('myVNetPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('myVNetSubnet1Name')]",
+            "properties": {
+              "addressPrefix": "[variables('myVNetSubnet1Prefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'myNSG')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('myVMNicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'myVNet')]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('myPublicIPName'))]"
+      ],
+      "tags": {
+        "displayName": "myVMNic"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('myVMSubnetRef')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('myPublicIPName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('myVMName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('myStorageName'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('myVMNicName'))]"
+      ],
+      "tags": {
+        "displayName": "myVM"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('myVMVmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('myVMName')]",
+          "adminUsername": "[parameters('myVMAdminUsername')]",
+          "adminPassword": "[parameters('myVMAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('myVMImagePublisher')]",
+            "offer": "[variables('myVMImageOffer')]",
+            "sku": "[parameters('myVMWindowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "myVMOSDisk",
+            "vhd": {
+              "uri": "[concat(reference(resourceId('Microsoft.Storage/storageAccounts', variables('myStorageName')), '2016-01-01').primaryEndpoints.blob, variables('myVMStorageAccountContainerName'), '/', variables('myVMOSDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('myVMNicName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "name": "Microsoft.Powershell.DSC",
+          "type": "extensions",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2016-03-30",
+          "dependsOn": [
+            "[resourceId('Microsoft.Compute/virtualMachines', parameters('myVMName'))]"
+          ],
+          "tags": {
+            "displayName": "iisconfig"
+          },
+          "properties": {
+            "publisher": "Microsoft.Powershell",
+            "type": "DSC",
+            "typeHandlerVersion": "2.9",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "configuration": {
+                "url": "[concat(parameters('_artifactsLocation'), '/', variables('iisconfigArchiveFolder'), '/', variables('iisconfigArchiveFileName'))]",
+                "script": "iisconfig.ps1",
+                "function": "Main"
+              },
+              "configurationArguments": {
+                "nodeName": "[parameters('myVMName')]",
+                "certUrl": "[concat(parameters('_artifactsLocation'), '/Cert/task6iiscert.pfx', parameters('_artifactsLocationSasToken'))]",
+                "certThumbprint": "[parameters('certThumbprint')]"
+              }
+            },
+            "protectedSettings": {
+              "configurationUrlSasToken": "[parameters('_artifactsLocationSasToken')]",
+              "configurationArguments": {
+                "certPassword": "[parameters('certPassword')]"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "[variables('myPublicIPName')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "myPublicIP"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('myPublicIPDnsName')]"
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}
